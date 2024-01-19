@@ -121,7 +121,7 @@ process sra_to_fastq {
 def help() {
     log.info """
         Usage:
-        nextflow run download_sra --samplesheet <path_to_samplesheet> --outdir <path_to_outdirectory>
+        nextflow run nf_download --samplesheet <path_to_samplesheet> --outdir <path_to_outdirectory>
 
         Arguments:
             --samplesheet fetchngs metadata samplesheet.

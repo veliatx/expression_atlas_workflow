@@ -1,8 +1,8 @@
 # Downloads fastq from sra/ena
 ### Example:
-`nextflow run download_sra --samplesheet <samplesheet_path> --output_directory <output_dir> -w <work_dir> -profile docker`
+`nextflow run nf_download --samplesheet <samplesheet_path> --output_directory <output_dir> -w <work_dir> -profile docker`
 ### Example aws:
-`nextflow run download_sra --samplesheet <samplesheet_path> --output_directory <output_dir> -w <work_dir> -profile aws`
+`nextflow run nf_download --samplesheet <samplesheet_path> --output_directory <output_dir> -w <work_dir> -profile aws`
 ### Notes:
 * errorStrategy set to 'ignore' for entire pipeline -> corrupted fastqs coming out of sra won't crash pipeline
 * s3_to_fastq_forks sets maxForks directive in s3_sra_cp process, defaults to 1 so that we fly under the radar
