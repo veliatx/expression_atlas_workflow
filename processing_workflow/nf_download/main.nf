@@ -107,13 +107,13 @@ process sra_to_fastq {
         mv \\
             ${SRR_ID}_2.fastq \\
             ${SRX_ID}_${SRR_ID}_2.fastq
-        gzip *_1.fastq
-       	gzip *_2.fastq
+        pigz --processes 12 *_1.fastq
+       	pigz --processes 12 *_2.fastq
     else
         mv \\
             ${SRR_ID}.fastq \\
             ${SRX_ID}_${SRR_ID}.fastq
-	gzip *.fastq
+	pigz --processes 12 *.fastq
     fi
 
     if [ '${params.subsample}' = 'true' ]
@@ -159,7 +159,7 @@ process subsample_fastq {
                 ${FASTQS} \\
                 ${params.sampling_depth} \\
                 | \\
-                gzip \\
+                pigz --processes 12 \\
                     > ${SRX_ID}_${SRR_ID}.fastq.gz
         else
             seqtk \\
@@ -168,7 +168,7 @@ process subsample_fastq {
                 ${FASTQS[0]} \\
                 ${params.sampling_depth} \\
                 | \\
-                gzip \\
+                pigz --processes 12 \\
                     > ${SRX_ID}_${SRR_ID}_1.fastq.gz
             seqtk \\
                 sample \\
@@ -176,7 +176,7 @@ process subsample_fastq {
                 ${FASTQS[1]} \\
                 ${params.sampling_depth} \\
                 | \\
-                gzip \\
+                pigz --processes 12 \\
                     > ${SRX_ID}_${SRR_ID}_2.fastq.gz
         fi
     else
