@@ -72,7 +72,7 @@ process sra_to_fastq {
 
     errorStrategy params.errorStrategy
 
-    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*'
+    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*', enabled: {params.subsample}
 
     container params.container_sratools
 
@@ -83,7 +83,7 @@ process sra_to_fastq {
     path(FASTA_REFERENCE)
 
     output:
-    tuple val(SRR_ID), val(SRX_ID), path('*.fastq*')
+    tuple val(SRR_ID), val(SRX_ID), val(SINGLE_END), path('*.fastq*')
 
     script:
     """
@@ -115,6 +115,79 @@ process sra_to_fastq {
             ${SRX_ID}_${SRR_ID}.fastq
 	gzip *.fastq
     fi
+
+    if [ '${params.subsample}' = 'true' ]
+    then
+        if [ '${SINGLE_END}' = 'false' ]
+        then 
+            mv ${SRX_ID}_${SRR_ID}_1.fastq.gz ${SRX_ID}_${SRR_ID}_1.presample.fastq.gz
+            mv ${SRX_ID}_${SRR_ID}_2.fastq.gz ${SRX_ID}_${SRR_ID}_2.presample.fastq.gz
+        else
+            mv ${SRX_ID}_${SRR_ID}.fastq.gz ${SRX_ID}_${SRR_ID}.presample.fastq.gz
+        fi
+    fi
+    """
+}
+
+/*
+Subsample a fastq with seqtk to specified number reads. 
+*/
+process subsample_fastq {
+
+    container params.container_seqtk
+
+    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*'
+
+    input:
+    tuple val(SRR_ID), val(SRX_ID), val(SINGLE_END), path(FASTQS), val(READ_COUNT)
+
+    output:
+    tuple val(SRR_ID), val(SRX_ID), path('*.fastq.gz')
+    
+    script:
+    """
+    #!/bin/sh
+
+    # if (( ${params.sampling_cutoff} < ${READ_COUNT} ))
+    if [ '${params.sampling_cutoff < READ_COUNT}' = 'true' ]
+    then
+        if [ '${SINGLE_END}' = 'true' ]
+        then
+            seqtk \\
+                sample \\
+                -s${params.sampling_seed} \\
+                ${FASTQS} \\
+                ${params.sampling_depth} \\
+                | \\
+                gzip \\
+                    > ${SRX_ID}_${SRR_ID}.fastq.gz
+        else
+            seqtk \\
+                sample \\
+                -s${params.sampling_seed} \\
+                ${FASTQS[0]} \\
+                ${params.sampling_depth} \\
+                | \\
+                gzip \\
+                    > ${SRX_ID}_${SRR_ID}_1.fastq.gz
+            seqtk \\
+                sample \\
+                -s${params.sampling_seed} \\
+                ${FASTQS[1]} \\
+                ${params.sampling_depth} \\
+                | \\
+                gzip \\
+                    > ${SRX_ID}_${SRR_ID}_2.fastq.gz
+        fi
+    else
+        if [ '${SINGLE_END}' = 'true' ]
+        then
+            mv ${FASTQS} ${SRX_ID}_${SRR_ID}.fastq.gz
+        else
+            mv ${FASTQS[0]} ${SRX_ID}_${SRR_ID}_1.fastq.gz
+            mv ${FASTQS[1]} ${SRX_ID}_${SRR_ID}_2.fastq.gz
+        fi
+    fi
     """
 }
 
@@ -128,6 +201,10 @@ def help() {
             --output_directory path to output directory. 
             --fasta_reference whether to force a reference fasta into fastq-dump. Provide path.
             --wget download from ena instead of sra.
+            --subsample subsample fastqs based on sampling_cutoff and sampling_depth
+            --sampling_seed random seed
+            --sampling_cutoff read threshold to perform subsampling
+            --sampling_depth depth to subsample to 
         """
 }
 
@@ -147,17 +224,28 @@ workflow {
     if ( !params.wget ) {
         Channel.fromPath ( params.samplesheet )
             .splitCsv ( header: true, sep: '\t' )
-            .map ( row -> [row.run_accession, row.experiment_accession, row.single_end.toLowerCase()] )
+            .map ( row -> [ row.run_accession, row.experiment_accession, row.single_end.toLowerCase() ] )
             .set { fastqs }
     
         s3_sra_cp ( fastqs )
         sra_to_fastq ( s3_sra_cp.out, fa )
+        if ( params.subsample ) {
+            Channel.fromPath ( params.samplesheet )
+                .splitCsv ( header: true, sep: '\t' )
+                .map ( row -> [ row.run_accession, row.read_count as int ]) 
+                .set { fastq_depths }
+            sra_to_fastq.out
+                .combine( fastq_depths, by: 0 )
+                .view()
+                .set { downloaded_w_depths  }
+            subsample_fastq( downloaded_w_depths )    
+        }
     } else {
         Channel.fromPath ( params.samplesheet )
             .splitCsv ( header: true, sep: '\t' )
             .map ( row -> [row.run_accession, row.experiment_accession, row.fastq_1, row.fastq_2, row.single_end.toLowerCase()])
             .set { fastqs }
 
-        wget_ena ( fastqs)
+        wget_ena ( fastqs )
     }
 }
