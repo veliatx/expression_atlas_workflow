@@ -123,7 +123,7 @@ process sra_to_fastq {
             mv ${SRX_ID}_${SRR_ID}.fastq ${SRX_ID}_${SRR_ID}.presample.fastq
         fi
     else
-        pigz -p 8 *.fastq
+        pigz -p ${params.pigz_threads} *.fastq
     fi
     """
 }
@@ -159,7 +159,7 @@ process subsample_fastq {
                 ${FASTQS} \\
                 ${params.sampling_depth} \\
                 | \\
-                pigz -p 8 \\
+                pigz -p ${params.pigz_threads} \\
                     > ${SRX_ID}_${SRR_ID}.fastq.gz
         else
             seqtk \\
@@ -168,7 +168,7 @@ process subsample_fastq {
                 ${FASTQS[0]} \\
                 ${params.sampling_depth} \\
                 | \\
-                pigz -p 8 \\
+                pigz -p ${params.pigz_threads} \\
                     > ${SRX_ID}_${SRR_ID}_1.fastq.gz
             seqtk \\
                 sample \\
@@ -176,7 +176,7 @@ process subsample_fastq {
                 ${FASTQS[1]} \\
                 ${params.sampling_depth} \\
                 | \\
-                pigz -p 8 \\
+                pigz -p ${params.pigz_threads} \\
                     > ${SRX_ID}_${SRR_ID}_2.fastq.gz
         fi
     else
@@ -187,7 +187,7 @@ process subsample_fastq {
             mv ${FASTQS[0]} ${SRX_ID}_${SRR_ID}_1.fastq
             mv ${FASTQS[1]} ${SRX_ID}_${SRR_ID}_2.fastq
         fi
-        pigz -p 8 *.fastq
+        pigz -p ${params.pigz_threads} *.fastq
     fi
     """
 }
