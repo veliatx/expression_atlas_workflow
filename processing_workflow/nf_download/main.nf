@@ -10,7 +10,7 @@ process wget_ena {
 
     publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.gz'
 
-    container params.container_sratools
+    container params.container_fastqdownload
 
     maxForks params.wget_ena_forks
 
@@ -74,7 +74,7 @@ process sra_to_fastq {
 
     publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*', enabled: !params.subsample
 
-    container params.container_sratools
+    container params.container_fastqdownload
 
     maxForks params.sra_to_fastq_forks
 
@@ -134,7 +134,7 @@ Subsample a fastq with seqtk to specified number reads.
 */
 process subsample_fastq {
 
-    container params.container_seqtk
+    container params.container_fastqdownload
 
     publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*'
 
