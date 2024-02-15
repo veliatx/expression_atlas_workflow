@@ -107,24 +107,23 @@ process sra_to_fastq {
         mv \\
             ${SRR_ID}_2.fastq \\
             ${SRX_ID}_${SRR_ID}_2.fastq
-        gzip *_1.fastq
-       	gzip *_2.fastq
     else
         mv \\
             ${SRR_ID}.fastq \\
             ${SRX_ID}_${SRR_ID}.fastq
-	gzip *.fastq
     fi
 
     if [ '${params.subsample}' = 'true' ]
     then
         if [ '${SINGLE_END}' = 'false' ]
         then 
-            mv ${SRX_ID}_${SRR_ID}_1.fastq.gz ${SRX_ID}_${SRR_ID}_1.presample.fastq.gz
-            mv ${SRX_ID}_${SRR_ID}_2.fastq.gz ${SRX_ID}_${SRR_ID}_2.presample.fastq.gz
+            mv ${SRX_ID}_${SRR_ID}_1.fastq ${SRX_ID}_${SRR_ID}_1.presample.fastq
+            mv ${SRX_ID}_${SRR_ID}_2.fastq ${SRX_ID}_${SRR_ID}_2.presample.fastq
         else
-            mv ${SRX_ID}_${SRR_ID}.fastq.gz ${SRX_ID}_${SRR_ID}.presample.fastq.gz
+            mv ${SRX_ID}_${SRR_ID}.fastq ${SRX_ID}_${SRR_ID}.presample.fastq
         fi
+    else
+        pigz -p 8 *.fastq
     fi
     """
 }
@@ -160,7 +159,7 @@ process subsample_fastq {
                 ${FASTQS} \\
                 ${params.sampling_depth} \\
                 | \\
-                gzip \\
+                pigz -p 8 \\
                     > ${SRX_ID}_${SRR_ID}.fastq.gz
         else
             seqtk \\
@@ -169,7 +168,7 @@ process subsample_fastq {
                 ${FASTQS[0]} \\
                 ${params.sampling_depth} \\
                 | \\
-                gzip \\
+                pigz -p 8 \\
                     > ${SRX_ID}_${SRR_ID}_1.fastq.gz
             seqtk \\
                 sample \\
@@ -177,17 +176,18 @@ process subsample_fastq {
                 ${FASTQS[1]} \\
                 ${params.sampling_depth} \\
                 | \\
-                gzip \\
+                pigz -p 8 \\
                     > ${SRX_ID}_${SRR_ID}_2.fastq.gz
         fi
     else
         if [ '${SINGLE_END}' = 'true' ]
         then
-            mv ${FASTQS} ${SRX_ID}_${SRR_ID}.fastq.gz
+            mv ${FASTQS} ${SRX_ID}_${SRR_ID}.fastq
         else
-            mv ${FASTQS[0]} ${SRX_ID}_${SRR_ID}_1.fastq.gz
-            mv ${FASTQS[1]} ${SRX_ID}_${SRR_ID}_2.fastq.gz
+            mv ${FASTQS[0]} ${SRX_ID}_${SRR_ID}_1.fastq
+            mv ${FASTQS[1]} ${SRX_ID}_${SRR_ID}_2.fastq
         fi
+        pigz -p 8 *.fastq
     fi
     """
 }
