@@ -72,7 +72,7 @@ process sra_to_fastq {
 
     errorStrategy params.errorStrategy
 
-    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*', enabled: {params.subsample}
+    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*', enabled: !params.subsample
 
     container params.container_sratools
 
@@ -138,6 +138,8 @@ process subsample_fastq {
 
     publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*'
 
+    maxForks params.subsample_fastq_forks
+
     input:
     tuple val(SRR_ID), val(SRX_ID), val(SINGLE_END), path(FASTQS), val(READ_COUNT)
 
@@ -148,7 +150,6 @@ process subsample_fastq {
     """
     #!/bin/sh
 
-    # if (( ${params.sampling_cutoff} < ${READ_COUNT} ))
     if [ '${params.sampling_cutoff < READ_COUNT}' = 'true' ]
     then
         if [ '${SINGLE_END}' = 'true' ]
@@ -236,7 +237,6 @@ workflow {
                 .set { fastq_depths }
             sra_to_fastq.out
                 .combine( fastq_depths, by: 0 )
-                .view()
                 .set { downloaded_w_depths  }
             subsample_fastq( downloaded_w_depths )    
         }
