@@ -107,10 +107,19 @@ process sra_to_fastq {
         mv \\
             ${SRR_ID}_2.fastq \\
             ${SRX_ID}_${SRR_ID}_2.fastq
+        if [ '${params.subsample}' = 'false' ]
+        then
+        pigz -c -p ${params.pigz_threads} ${SRX_ID}_${SRR_ID}_1.fastq > ${SRX_ID}_${SRR_ID}_1.fastq.gz
+        pigz -c -p ${params.pigz_threads} ${SRX_ID}_${SRR_ID}_2.fastq > ${SRX_ID}_${SRR_ID}_2.fastq.gz
+        fi
     else
         mv \\
             ${SRR_ID}.fastq \\
             ${SRX_ID}_${SRR_ID}.fastq
+            if [ '${params.subsample}' = 'false' ]
+            then
+            pigz -c -p ${params.pigz_threads} ${SRX_ID}_${SRR_ID}.fastq > ${SRX_ID}_${SRR_ID}.fastq.gz
+            fi
     fi
 
     if [ '${params.subsample}' = 'true' ]
@@ -122,8 +131,6 @@ process sra_to_fastq {
         else
             mv ${SRX_ID}_${SRR_ID}.fastq ${SRX_ID}_${SRR_ID}.presample.fastq
         fi
-    else
-        pigz -p ${params.pigz_threads} *.fastq
     fi
     """
 }
@@ -159,7 +166,7 @@ process subsample_fastq {
                 ${FASTQS} \\
                 ${params.sampling_depth} \\
                 | \\
-                pigz -p ${params.pigz_threads} \\
+                pigz -c -p ${params.pigz_threads} \\
                     > ${SRX_ID}_${SRR_ID}.fastq.gz
         else
             seqtk \\
@@ -168,7 +175,7 @@ process subsample_fastq {
                 ${FASTQS[0]} \\
                 ${params.sampling_depth} \\
                 | \\
-                pigz -p ${params.pigz_threads} \\
+                pigz -c -p ${params.pigz_threads} \\
                     > ${SRX_ID}_${SRR_ID}_1.fastq.gz
             seqtk \\
                 sample \\
@@ -176,18 +183,26 @@ process subsample_fastq {
                 ${FASTQS[1]} \\
                 ${params.sampling_depth} \\
                 | \\
-                pigz -p ${params.pigz_threads} \\
+                pigz -c -p ${params.pigz_threads} \\
                     > ${SRX_ID}_${SRR_ID}_2.fastq.gz
         fi
     else
         if [ '${SINGLE_END}' = 'true' ]
         then
             mv ${FASTQS} ${SRX_ID}_${SRR_ID}.fastq
+            pigz -c -p ${params.pigz_threads} \\
+                ${SRX_ID}_${SRR_ID}.fastq \\
+                > ${SRX_ID}_${SRR_ID}.fastq.gz
         else
             mv ${FASTQS[0]} ${SRX_ID}_${SRR_ID}_1.fastq
             mv ${FASTQS[1]} ${SRX_ID}_${SRR_ID}_2.fastq
+            pigz -c -p ${params.pigz_threads} \\
+                ${SRX_ID}_${SRR_ID}_1.fastq \\
+                > ${SRX_ID}_${SRR_ID}_1.fastq.gz
+            pigz -c -p ${params.pigz_threads} \\
+                ${SRX_ID}_${SRR_ID}_2.fastq \\
+                > ${SRX_ID}_${SRR_ID}_2.fastq.gz
         fi
-        pigz -p ${params.pigz_threads} *.fastq
     fi
     """
 }
