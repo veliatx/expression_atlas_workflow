@@ -234,7 +234,7 @@ workflow {
     if ( params.fasta_reference ) {
         fa = file( params.fasta_reference )
     } else {
-        fa = file( 'download_sra/test/empty.txt' )
+        fa = file( 'nf_download/test/empty.txt' )
     }
     
     if ( !params.wget ) {
