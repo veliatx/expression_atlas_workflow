@@ -72,7 +72,7 @@ process sra_to_fastq {
 
     errorStrategy params.errorStrategy
 
-    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*', enabled: !params.subsample
+    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.gz', enabled: !params.subsample
 
     container params.container_fastqdownload
 
@@ -142,7 +142,7 @@ process subsample_fastq {
 
     container params.container_fastqdownload
 
-    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.fastq*'
+    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.gz'
 
     maxForks params.subsample_fastq_forks
 
