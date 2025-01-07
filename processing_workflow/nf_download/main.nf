@@ -87,7 +87,7 @@ process sra_to_fastq {
 
     script:
     """
-    #!/bin/sh
+    #!/bin/bash
 
     if [ '${SINGLE_END}' = 'false' ]
     then
@@ -101,33 +101,36 @@ process sra_to_fastq {
 
     if [ '${SINGLE_END}' = 'false' ]
     then
-        mv \\
-            ${SRR_ID}_1.fastq \\
-            ${SRX_ID}_${SRR_ID}_1.fastq
-        mv \\
-            ${SRR_ID}_2.fastq \\
-            ${SRX_ID}_${SRR_ID}_2.fastq
-        if [ '${params.subsample}' = 'false' ]
-        then
-        pigz -c -p ${params.pigz_threads} ${SRX_ID}_${SRR_ID}_1.fastq > ${SRX_ID}_${SRR_ID}_1.fastq.gz
-        pigz -c -p ${params.pigz_threads} ${SRX_ID}_${SRR_ID}_2.fastq > ${SRX_ID}_${SRR_ID}_2.fastq.gz
-        fi
+        for f in *.fastq
+        do
+            mv \\
+                \${f} \\
+                ${SRX_ID}_\${f}
+            if [ '${params.subsample}' = 'false' ]
+            then
+                pigz -c -p ${params.pigz_threads} ${SRX_ID}_\${f} > ${SRX_ID}_\${f}.gz
+            fi
+        done
     else
         mv \\
             ${SRR_ID}.fastq \\
             ${SRX_ID}_${SRR_ID}.fastq
-            if [ '${params.subsample}' = 'false' ]
-            then
+        if [ '${params.subsample}' = 'false' ]
+        then
             pigz -c -p ${params.pigz_threads} ${SRX_ID}_${SRR_ID}.fastq > ${SRX_ID}_${SRR_ID}.fastq.gz
-            fi
+        fi
     fi
 
     if [ '${params.subsample}' = 'true' ]
     then
         if [ '${SINGLE_END}' = 'false' ]
-        then 
-            mv ${SRX_ID}_${SRR_ID}_1.fastq ${SRX_ID}_${SRR_ID}_1.presample.fastq
-            mv ${SRX_ID}_${SRR_ID}_2.fastq ${SRX_ID}_${SRR_ID}_2.presample.fastq
+        then
+            for f in *.fastq
+            do
+                mv \\
+                    \${f} \\
+                    \${f%.*}.presample.fastq
+            done
         else
             mv ${SRX_ID}_${SRR_ID}.fastq ${SRX_ID}_${SRR_ID}.presample.fastq
         fi
@@ -163,45 +166,41 @@ process subsample_fastq {
             seqtk \\
                 sample \\
                 -s${params.sampling_seed} \\
-                ${FASTQS} \\
+                ${SRX_ID}_${SRR_ID}.presample.fastq \\
                 ${params.sampling_depth} \\
                 | \\
                 pigz -c -p ${params.pigz_threads} \\
                     > ${SRX_ID}_${SRR_ID}.fastq.gz
         else
-            seqtk \\
-                sample \\
-                -s${params.sampling_seed} \\
-                ${FASTQS[0]} \\
-                ${params.sampling_depth} \\
-                | \\
-                pigz -c -p ${params.pigz_threads} \\
-                    > ${SRX_ID}_${SRR_ID}_1.fastq.gz
-            seqtk \\
-                sample \\
-                -s${params.sampling_seed} \\
-                ${FASTQS[1]} \\
-                ${params.sampling_depth} \\
-                | \\
-                pigz -c -p ${params.pigz_threads} \\
-                    > ${SRX_ID}_${SRR_ID}_2.fastq.gz
+            for f in *.fastq
+            do
+                seqtk \\
+                    sample \\
+                    -s${params.sampling_seed} \\
+                    \${f} \\
+                    ${params.sampling_depth} \\
+                    | \\
+                    pigz -c -p ${params.pigz_threads} \\
+                        > \${f%.*}.fastq.gz
+            done
         fi
     else
         if [ '${SINGLE_END}' = 'true' ]
         then
-            mv ${FASTQS} ${SRX_ID}_${SRR_ID}.fastq
+            mv ${SRX_ID}_${SRR_ID}.presample.fastq ${SRX_ID}_${SRR_ID}.fastq
             pigz -c -p ${params.pigz_threads} \\
                 ${SRX_ID}_${SRR_ID}.fastq \\
                 > ${SRX_ID}_${SRR_ID}.fastq.gz
         else
-            mv ${FASTQS[0]} ${SRX_ID}_${SRR_ID}_1.fastq
-            mv ${FASTQS[1]} ${SRX_ID}_${SRR_ID}_2.fastq
-            pigz -c -p ${params.pigz_threads} \\
-                ${SRX_ID}_${SRR_ID}_1.fastq \\
-                > ${SRX_ID}_${SRR_ID}_1.fastq.gz
-            pigz -c -p ${params.pigz_threads} \\
-                ${SRX_ID}_${SRR_ID}_2.fastq \\
-                > ${SRX_ID}_${SRR_ID}_2.fastq.gz
+           for f in *.fastq
+            do
+                mv \\
+                    \${f} \\
+                    \${f%%.*}.fastq
+                pigz -c -p ${params.pigz_threads} \\
+                    \${f%%.*}.fastq \\
+                    > \${f%%.*}.fastq.gz
+            done
         fi
     fi
     """
