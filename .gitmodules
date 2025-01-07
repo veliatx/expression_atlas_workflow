@@ -1,0 +1,6 @@
+[submodule "processing_workflow/rnaseq"]
+	path = processing_workflow/rnaseq
+	url = https://github.com/nf-core/rnaseq.git
+[submodule "processing_workflow/fetchngs"]
+	path = processing_workflow/fetchngs
+	url = https://github.com/nf-core/fetchngs.git
