@@ -1,10 +1,42 @@
-# Downloads fastq from sra/ena
-### Example:
+# Nextflow RNA-seq Download Pipeline
+
+A quick pipeline for downloading RNA-seq data from SRA (via AWS S3) or ENA (via FTP) with optional subsampling capabilities.
+
+## Features
+
+- Supports both single-end and paired-end reads
+- Flexible download sources:
+  - SRA using AWS S3 (default, no credentials needed)
+  - ENA using direct FTP downloads
+- Optional FASTQ subsampling using seqtk
+- Configurable parallel processing
+- Automatic handling of corrupted SRA files
+- Compression using pigz for improved performance
+
+## Usage
+
+### Basic Usage with SRA (Default)
 `nextflow run nf_download --samplesheet <samplesheet_path> --output_directory <output_dir> -w <work_dir> -profile docker`
-### Example aws:
+
+### Using ENA Instead of SRA
+`nextflow run nf_download --samplesheet <samplesheet_path> --output_directory <output_dir> -w <work_dir> --wget -profile docker`
+
+### AWS Batch Execution
 `nextflow run nf_download --samplesheet <samplesheet_path> --output_directory <output_dir> -w <work_dir> -profile aws`
-### Notes:
-* errorStrategy set to 'ignore' for entire pipeline -> corrupted fastqs coming out of sra won't crash pipeline
-* s3_to_fastq_forks sets maxForks directive in s3_sra_cp process, defaults to 1 so that we fly under the radar
-* wget_ena_forks sets maxForks directive in wget_ena process, defaults to 1 for same reason as above
-* sra_to_fastq_forks sets maxForks directive in the fastq-dump process, defaults to 5 but should be increased if using batch 
+
+## Samplesheet Format
+
+Tab-separated file with the following columns:
+- `run_accession`: SRR ID
+- `experiment_accession`: SRX ID
+- `single_end`: true/false
+- `fastq_1`: FTP URL (required for ENA)
+- `fastq_2`: FTP URL (required for paired-end ENA)
+- `read_count`: Number of reads (required for subsampling)
+
+## Notes
+
+- Pipeline uses 'ignore' errorStrategy for handling corrupted SRA files
+- Low default fork values for S3/ENA downloads to avoid rate limiting
+- AWS Batch users should increase `sra_to_fastq_forks` for better performance
+- Uses pigz for parallel compression of output files 

@@ -1,5 +1,18 @@
 #!/usr/bin/env nextflow
 
+/*
+* RNA-seq Download Pipeline
+* Author: mitch@veliatx.com
+* 
+* This pipeline downloads RNA-seq data from either ENA (via FTP) or SRA (via AWS S3)
+* and optionally subsamples the resulting FASTQ files.
+*
+* Key features:
+* - Supports both single-end and paired-end reads
+* - Downloads from ENA using wget or from SRA using AWS S3
+* - Optional subsampling of FASTQ files using seqtk
+* - Configurable error handling and resource allocation
+*/
 
 nextflow.enable.dsl = 2
 
@@ -72,7 +85,11 @@ process sra_to_fastq {
 
     errorStrategy params.errorStrategy
 
-    publishDir params.output_directory, mode: 'copy', overwrite: true, pattern: '*.gz', enabled: !params.subsample
+    publishDir params.output_directory, 
+        mode: 'copy', 
+        overwrite: true, 
+        pattern: '*.gz', 
+        enabled: !params.subsample
 
     container params.container_fastqdownload
 
@@ -208,43 +225,60 @@ process subsample_fastq {
 
 def help() {
     log.info """
-        Usage:
-        nextflow run nf_download --samplesheet <path_to_samplesheet> --outdir <path_to_outdirectory>
-
-        Arguments:
-            --samplesheet fetchngs metadata samplesheet.
-            --output_directory path to output directory. 
-            --fasta_reference whether to force a reference fasta into fastq-dump. Provide path.
-            --wget download from ena instead of sra.
-            --subsample subsample fastqs based on sampling_cutoff and sampling_depth
-            --sampling_seed random seed
-            --sampling_cutoff read threshold to perform subsampling
-            --sampling_depth depth to subsample to 
-        """
+    ===========================================
+    RNA-seq Download Pipeline
+    ===========================================
+    
+    Required Arguments:
+        --samplesheet         Path to fetchngs metadata samplesheet
+        --output_directory    Path to output directory
+    
+    Optional Arguments:
+        --fasta_reference    Path to reference FASTA (for fastq-dump)
+        --wget              Use wget to download from ENA instead of SRA
+        --subsample         Enable FASTQ subsampling
+        
+    Subsampling Options:
+        --sampling_seed     Random seed for reproducibility
+        --sampling_cutoff   Minimum read count threshold for subsampling
+        --sampling_depth    Target depth to subsample to
+        
+    Resource Control:
+        --wget_ena_forks    Max parallel downloads from ENA
+        --s3_sra_cp_forks   Max parallel downloads from SRA
+        --pigz_threads      Number of threads for compression
+    """
 }
 
 workflow {
 
+    // Input validation
     if ( !params.samplesheet || !params.output_directory ) {
         help()
         exit 1
     }
 
-    if ( params.fasta_reference ) {
-        fa = file( params.fasta_reference )
-    } else {
-        fa = file( 'nf_download/test/empty.txt' )
-    }
+    // Prepare reference FASTA if specified
+    fa = params.fasta_reference ? file(params.fasta_reference) : file('nf_download/test/empty.txt')
     
-    if ( !params.wget ) {
-        Channel.fromPath ( params.samplesheet )
-            .splitCsv ( header: true, sep: '\t' )
-            .map ( row -> [ row.run_accession, row.experiment_accession, row.single_end.toLowerCase() ] )
+    // Split workflow based on download method
+    if (!params.wget) {
+        // SRA download workflow
+        Channel.fromPath(params.samplesheet)
+            .splitCsv(header: true, sep: '\t')
+            .map { row -> [
+                row.run_accession,
+                row.experiment_accession,
+                row.single_end.toLowerCase()
+            ]}
             .set { fastqs }
-    
-        s3_sra_cp ( fastqs )
-        sra_to_fastq ( s3_sra_cp.out, fa )
-        if ( params.subsample ) {
+
+        // Main download processes
+        s3_sra_cp(fastqs)
+        sra_to_fastq(s3_sra_cp.out, fa)
+
+        // Optional subsampling workflow
+        if (params.subsample) {
             Channel.fromPath ( params.samplesheet )
                 .splitCsv ( header: true, sep: '\t' )
                 .map ( row -> [ row.run_accession, row.read_count as int ]) 
@@ -255,6 +289,7 @@ workflow {
             subsample_fastq( downloaded_w_depths )    
         }
     } else {
+        // ENA download workflow
         Channel.fromPath ( params.samplesheet )
             .splitCsv ( header: true, sep: '\t' )
             .map ( row -> [row.run_accession, row.experiment_accession, row.fastq_1, row.fastq_2, row.single_end.toLowerCase()])
