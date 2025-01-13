@@ -7,20 +7,24 @@ including:
 - Likelihood ratio testing
 - PCA variance analysis
 - Mixed linear modeling for variance components
+- TMM normalization
 """
 
 import copy
-from typing import List
+from typing import List, Tuple
 
 import anndata as ad
 import numpy as np
 import pandas as pd
-from statsmodels.stats.multitest import multipletests
 from joblib import Parallel, delayed
 from sklearn.utils.parallel import parallel_backend
 
 from scipy.stats import chi2
 from scipy.stats.distributions import nbinom
+
+import statsmodels.api as sm 
+import statsmodels.formula.api as smf
+from statsmodels.stats.multitest import multipletests
 
 from pydeseq2.ds import DeseqStats
 from pydeseq2.dds import DeseqDataSet
@@ -240,7 +244,7 @@ def pca_anova_model(
         df["PC"] = adata.obsm["X_pca"][:, i]
 
         try:
-            lm = ols(
+            lm = smf.ols(
                 f'PC ~ {"+ ".join([f"C({c})" for c in df.columns if c != "PC"])}',
                 data=df,
             ).fit()
@@ -298,7 +302,7 @@ def pca_variance_components_model(
     ]
 
     df = adata.obs.loc[:, columns]
-    df = df.loc[:, (df.nunique() > 1) & ~dds_tmp.obs.isna().any(axis=0)]
+    df = df.loc[:, (df.nunique() > 1) & ~adata.obs.isna().any(axis=0)]
     df.columns = df.columns.str.replace("-", "").str.replace("_", "")
 
     pc_df = pd.DataFrame(columns=df.columns.tolist() + ["residual", "PC"])
@@ -339,3 +343,61 @@ def pca_variance_components_model(
         ]
 
     return pc_df
+
+def tmm_normalize(
+    data: np.ndarray,
+    trim_lfc=0.3,
+    trim_mag=0.05,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """TMM-normalization, reworked from conorm package.
+
+    Args:
+        data (np.ndarray): Expression matrix, rows as samples and columns as genes.
+        trim_lfc (float): Cutoff for fold change.
+        trim_mag (float): Cutoff for magnitude.
+    Returns:
+        (Tuple[np.ndarray,np.ndarray]): Normalized expression values, and normalization factors.
+    """
+    x = data.copy()
+
+    lib_size = np.nansum(x, axis=1)
+    mask = x == 0
+    x[:, mask.all(axis=0)] = np.nan
+    p75 = np.nanpercentile(x, 75, axis=1)
+    ref = np.argmin(np.abs(p75 - p75.mean()))
+    mask[:, mask[ref]] = True
+    x[mask] = np.nan
+
+    norm_x = x / lib_size[:, np.newaxis]
+    log = np.log2(norm_x)
+    m_g = log - log[ref]
+    a_g = (log + log[ref]) / 2
+
+    perc_m_g = np.nanquantile(
+        m_g,
+        [trim_lfc, 1 - trim_lfc],
+        axis=1,
+        method="nearest",
+    )[..., np.newaxis]
+
+    perc_a_g = np.nanquantile(
+        a_g,
+        [trim_mag, 1 - trim_mag],
+        axis=1,
+        method="nearest",
+    )[..., np.newaxis]
+
+    mask = mask | (m_g < perc_m_g[0]) | (m_g > perc_m_g[1])
+    mask = mask | (a_g < perc_a_g[0]) | (a_g > perc_a_g[1])
+    w_gk = (1 - norm_x) / x
+    w_gk = 1 / (w_gk + w_gk[ref])
+
+    w_gk[mask] = 0
+    m_g[mask] = 0
+    w_gk = w_gk / np.nansum(w_gk, axis=1)[:, np.newaxis]
+    tmms = np.nansum(w_gk * m_g, axis=1)
+    tmms = tmms - tmms.mean()
+    tmms = np.exp2(tmms)
+
+    return data / tmms[..., np.newaxis], tmms
+

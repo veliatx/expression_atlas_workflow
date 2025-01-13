@@ -54,4 +54,6 @@ Located in `de_workflow/`, the DE workflow performs downstream analysis:
 4. Sync entire experiment folder to location in S3 for ingestion by expression_atlas_db. 
 
 ## Notes:
-* As currently configured, this workflow designed to be ran on large local workstation (>500gb ram, >60 cores), but could be easily adapted to run on AWS batch. 
+* As currently configured, this workflow designed to be ran on large local workstation, but could be easily adapted to run on AWS batch. 
+  * Hardware Requirements for local usage:
+    * >500GB ram, >60 cores, storage sufficient for experiment. 
