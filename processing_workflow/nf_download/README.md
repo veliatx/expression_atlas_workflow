@@ -1,6 +1,6 @@
 # Nextflow RNA-seq Download Pipeline
 
-A quick pipeline for downloading RNA-seq data from SRA (via AWS S3) or ENA (via FTP) with optional subsampling capabilities.
+A simple pipeline for downloading RNA-seq data from SRA (via AWS S3) or ENA (via FTP) with optional subsampling capabilities.
 
 ## Features
 
@@ -11,7 +11,7 @@ A quick pipeline for downloading RNA-seq data from SRA (via AWS S3) or ENA (via 
 - Optional FASTQ subsampling using seqtk
 - Configurable parallel processing
 - Automatic handling of corrupted SRA files
-- Compression using pigz for improved performance
+- ompression using pigz for input to nf-core/rnaseq
 
 ## Usage
 
